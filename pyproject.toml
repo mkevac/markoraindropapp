@@ -1,0 +1,19 @@
+[project]
+name = "markoraindropapp"
+version = "0.1.0"
+description = "A simple application to fetch the latest submissions from Raindrop.io"
+authors = [
+    {name = "Marko"}
+]
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "requests>=2.31.0",
+]
+
+[project.scripts]
+raindrop = "markoraindrop.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build" 
