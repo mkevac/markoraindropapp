@@ -13,27 +13,64 @@ class RaindropClient:
             print("Please set the RAINDROP_TOKEN environment variable or pass it as an argument.")
             sys.exit(1)
     
+    def _fetch_paginated_bookmarks(self, collection_id, limit, sort, start_page=0):
+        """Helper method to fetch bookmarks with automatic pagination
+        
+        Args:
+            collection_id (int): The ID of the collection (0 for "All bookmarks")
+            limit (int): Total number of bookmarks to fetch
+            sort (str): Sort order
+            start_page (int): Starting page number
+            
+        Returns:
+            list: List of bookmark objects or None if error
+        """
+        all_bookmarks = []
+        current_page = start_page
+        remaining_limit = limit
+        
+        while remaining_limit > 0:
+            # Fetch up to 50 bookmarks per page (API maximum)
+            page_limit = min(50, remaining_limit)
+            
+            url = f"{self.api_base}/raindrops/{collection_id}"
+            
+            headers = {
+                "Authorization": f"Bearer {self.token}"
+            }
+            
+            params = {
+                "sort": sort,
+                "perpage": page_limit,
+                "page": current_page
+            }
+            
+            response = requests.get(url, headers=headers, params=params)
+            
+            if response.status_code != 200:
+                print(f"Error: {response.status_code}")
+                print(response.text)
+                return None if not all_bookmarks else all_bookmarks
+            
+            page_bookmarks = response.json().get("items", [])
+            
+            # If we got no bookmarks, we've reached the end
+            if not page_bookmarks:
+                break
+            
+            all_bookmarks.extend(page_bookmarks)
+            remaining_limit -= len(page_bookmarks)
+            current_page += 1
+            
+            # If we got fewer bookmarks than requested, we've reached the end
+            if len(page_bookmarks) < page_limit:
+                break
+        
+        return all_bookmarks
+    
     def get_latest_bookmarks(self, limit=10):
         """Get the latest bookmarks from Raindrop.io"""
-        url = f"{self.api_base}/raindrops/0"  # 0 is the ID for "All bookmarks"
-        
-        headers = {
-            "Authorization": f"Bearer {self.token}"
-        }
-        
-        params = {
-            "sort": "-created",  # Sort by creation date descending (newest first)
-            "perpage": limit
-        }
-        
-        response = requests.get(url, headers=headers, params=params)
-        
-        if response.status_code != 200:
-            print(f"Error: {response.status_code}")
-            print(response.text)
-            return None
-        
-        return response.json().get("items", [])
+        return self._fetch_paginated_bookmarks(0, limit, "-created", 0)
     
     def get_collection_bookmarks(self, collection_id, limit=25, sort="-created", page=0):
         """Get bookmarks from a specific collection
@@ -48,26 +85,7 @@ class RaindropClient:
         Returns:
             list: List of bookmark objects or None if error
         """
-        url = f"{self.api_base}/raindrops/{collection_id}"
-        
-        headers = {
-            "Authorization": f"Bearer {self.token}"
-        }
-        
-        params = {
-            "sort": sort,
-            "perpage": limit,
-            "page": page
-        }
-        
-        response = requests.get(url, headers=headers, params=params)
-        
-        if response.status_code != 200:
-            print(f"Error: {response.status_code}")
-            print(response.text)
-            return None
-        
-        return response.json().get("items", [])
+        return self._fetch_paginated_bookmarks(collection_id, limit, sort, page)
     
     def get_collections(self):
         """Get all collections
